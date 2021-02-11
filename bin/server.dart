@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:dotenv/dotenv.dart' show load, env;
 import 'package:dw3_pizz_delivery_api/application/config/database_connection_configuration.dart';
+import 'package:dw3_pizz_delivery_api/application/config/service_locator_config.dart';
+import 'package:dw3_pizz_delivery_api/application/middlewares/middlewares.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as io;
+import 'package:shelf_router/shelf_router.dart';
 
 // For Google Cloud Run, set _hostname to '0.0.0.0'.
 const _hostname = 'localhost';
@@ -25,16 +29,21 @@ void main(List<String> args) async {
     return;
   }
 
+  final appRouter = Router();
+
+  appRouter.add('GET', '/hello', (request) {
+    return shelf.Response.ok(jsonEncode({'TAG1': 'Silas', 'TAG2': 'Sampaio'}));
+  });
+
   var handler = const shelf.Pipeline()
       .addMiddleware(shelf.logRequests())
-      .addHandler(_echoRequest);
+      .addMiddleware(defaultContentType('application/json;charset=utf-8'))
+      .addMiddleware(cors())
+      .addHandler(appRouter);
 
   var server = await io.serve(handler, _hostname, port);
   print('Serving at http://${server.address.host}:${server.port}');
 }
-
-shelf.Response _echoRequest(shelf.Request request) =>
-    shelf.Response.ok('Request for "${request.url}"');
 
 Future<void> loadConfigApplication() async {
   await load();
@@ -49,4 +58,5 @@ Future<void> loadConfigApplication() async {
       user: Platform.environment['DATABASE_USER'] ?? env['databaseUser']);
 
   GetIt.I.registerSingleton(databaseConfig);
+  configureDependencies();
 }
